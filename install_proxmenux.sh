@@ -4,7 +4,7 @@
 # ProxMenux - A menu-driven toolkit for Proxmox VE management
 # ==========================================================
 # Author       : MacRimi
-# Contributors : cod378
+# Contributors : cod378, Nicolas (nickdesi)
 # Subproject   : ProxMenux Monitor (System Health & Web Dashboard)
 # Copyright    : (c) 2024-2025 MacRimi
 # License      : (CC BY-NC 4.0) (https://github.com/MacRimi/ProxMenux/blob/main/LICENSE)

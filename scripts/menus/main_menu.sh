@@ -4,6 +4,7 @@
 # ProxMenux - A menu-driven script for Proxmox VE management
 # ==========================================================
 # Author      : MacRimi
+# Contributors : Nicolas (nickdesi)
 # Copyright   : (c) 2024 MacRimi
 # License     : (CC BY-NC 4.0) (https://github.com/MacRimi/ProxMenux/blob/main/LICENSE)
 # Version     : 2.0
