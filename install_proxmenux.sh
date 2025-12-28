@@ -974,25 +974,14 @@ show_installation_options() {
         esac
     fi
     
-    if [[ "$pve_version" -ge 9 ]]; then
-        INSTALL_TYPE=$(whiptail --backtitle "ProxMenux" --title "$menu_title" --menu "\n$menu_text" 14 70 2 \
-            "1" "Normal Version      (English only)" 3>&1 1>&2 2>&3)
-        
-        if [ -z "$INSTALL_TYPE" ]; then
-            show_proxmenux_logo
-            msg_warn "Installation cancelled."
-            exit 1
-        fi
-    else
-        INSTALL_TYPE=$(whiptail --backtitle "ProxMenux" --title "$menu_title" --menu "\n$menu_text" 14 70 2 \
-            "1" "Normal Version      (English only)" \
-            "2" "Translation Version (Multi-language support)" 3>&1 1>&2 2>&3)
-        
-        if [ -z "$INSTALL_TYPE" ]; then
-            show_proxmenux_logo
-            msg_warn "Installation cancelled."
-            exit 1
-        fi
+    INSTALL_TYPE=$(whiptail --backtitle "ProxMenux" --title "$menu_title" --menu "\n$menu_text" 14 70 2 \
+        "1" "Normal Version      (English only)" \
+        "2" "Translation Version (Multi-language support)" 3>&1 1>&2 2>&3)
+    
+    if [ -z "$INSTALL_TYPE" ]; then
+        show_proxmenux_logo
+        msg_warn "Installation cancelled."
+        exit 1
     fi
     
     if [ -z "$INSTALL_TYPE" ]; then
