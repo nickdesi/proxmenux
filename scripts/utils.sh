@@ -230,32 +230,50 @@ load_language() {
 
 
 
+# Declare in-memory cache (associative array)
+declare -gA _TRANSLATION_CACHE
+_VENV_SOURCED=false
+
+# Load all translations from cache file into memory
+_load_translation_cache() {
+    if [[ "$_CACHE_LOADED" == "true" ]]; then
+        return
+    fi
+    if [[ -f "$CACHE_FILE" ]] && jq -e . "$CACHE_FILE" > /dev/null 2>&1; then
+        while IFS='=' read -r key value; do
+            _TRANSLATION_CACHE["$key"]="$value"
+        done < <(jq -r --arg lang "$LANGUAGE" 'to_entries[] | "\(.key)=\(.value[$lang] // "")"' "$CACHE_FILE" 2>/dev/null)
+    fi
+    _CACHE_LOADED=true
+}
+
+# Optimized translate function
 translate() {
     local text="$1"
-    local dest_lang="$LANGUAGE"
+    local dest_lang="${LANGUAGE:-en}"
 
+    # Fast path for English
+    [[ "$dest_lang" == "en" ]] && { echo "$text"; return; }
 
-    if [ "$dest_lang" = "en" ]; then
-        echo "$text"
+    # Load cache into memory on first call
+    _load_translation_cache
+
+    # Check in-memory cache first (fastest)
+    if [[ -n "${_TRANSLATION_CACHE[$text]+_}" ]] && [[ -n "${_TRANSLATION_CACHE[$text]}" ]]; then
+        echo "${_TRANSLATION_CACHE[$text]}"
         return
     fi
 
-    if [ ! -s "$CACHE_FILE" ] || ! jq -e . "$CACHE_FILE" > /dev/null 2>&1; then
-        echo "{}" > "$CACHE_FILE"
+    # No venv = no translation possible
+    [[ ! -d "$VENV_PATH" ]] && { echo "$text"; return; }
+
+    # Source venv only once per session
+    if [[ "$_VENV_SOURCED" != "true" ]]; then
+        source "$VENV_PATH/bin/activate"
+        _VENV_SOURCED=true
     fi
 
-    local cached_translation=$(jq -r --arg text "$text" --arg lang "$dest_lang" '.[$text][$lang] // .[$text]["notranslate"] // empty' "$CACHE_FILE")
-    if [ -n "$cached_translation" ]; then
-        echo "$cached_translation"
-        return
-    fi
-
-    if [ ! -d "$VENV_PATH" ]; then
-        echo "$text"
-        return
-    fi
-
-    source "$VENV_PATH/bin/activate"
+    # Perform translation via Python
     local translated
     translated=$(python3 -c "
 from googletrans import Translator
@@ -277,30 +295,35 @@ translate_text(
     sys.argv[2],
     json.loads(sys.argv[3])
 )
-" "$(jq -Rn --arg t "$text" '$t')" "$dest_lang" "$(jq -Rn --arg ctx "$TRANSLATION_CONTEXT" '$ctx')")
-    deactivate
+" "$(jq -Rn --arg t "$text" '$t')" "$dest_lang" "$(jq -Rn --arg ctx "$TRANSLATION_CONTEXT" '$ctx')" 2>/dev/null)
 
-    local translation_result=$(echo "$translated" | jq -r '.')
-    local success=$(echo "$translation_result" | jq -r '.success')
+    local success
+    success=$(echo "$translated" | jq -r '.success // false' 2>/dev/null)
     
-    if [ "$success" = "true" ]; then
-        translated=$(echo "$translation_result" | jq -r '.text')
+    if [[ "$success" == "true" ]]; then
+        translated=$(echo "$translated" | jq -r '.text')
         
-        # Additional cleaning step
+        # Clean any remaining prefixes
         translated=$(echo "$translated" | sed -E 's/^(Context:|Contexto:|Contexte:|Kontext:|Contesto:|上下文：|コンテキスト：).*?(Translate:|Traducir:|Traduire:|Übersetzen:|Tradurre:|Traduzir:|翻译:|翻訳:)//gI' | sed 's/^ *//; s/ *$//')
         
-        # Only cache if the language is not English
-        if [ "$dest_lang" != "en" ]; then
-            local temp_cache=$(mktemp)
-            jq --arg text "$text" --arg lang "$dest_lang" --arg translated "$translated" '
-                if .[$text] == null then .[$text] = {} else . end |
-                .[$text][$lang] = $translated
-            ' "$CACHE_FILE" > "$temp_cache" && mv "$temp_cache" "$CACHE_FILE"
-        fi
+        # Update in-memory cache
+        _TRANSLATION_CACHE["$text"]="$translated"
+        
+        # Persist to disk cache (async-friendly)
+        {
+            local temp_cache
+            temp_cache=$(mktemp)
+            if jq --arg text "$text" --arg lang "$dest_lang" --arg translated "$translated" \
+               'if .[$text] == null then .[$text] = {} else . end | .[$text][$lang] = $translated' \
+               "$CACHE_FILE" > "$temp_cache" 2>/dev/null; then
+                mv "$temp_cache" "$CACHE_FILE"
+            else
+                rm -f "$temp_cache"
+            fi
+        } &
         
         echo "$translated"
     else
-        local error=$(echo "$translation_result" | jq -r '.error')
         echo "$text"
     fi
 }

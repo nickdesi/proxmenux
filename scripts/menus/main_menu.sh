@@ -83,9 +83,39 @@ fi
 
 # ==========================================================
 
+# Preload all menu translations at startup for faster rendering
+preload_menu_translations() {
+    [[ "$LANGUAGE" == "en" ]] && return
+    
+    local menu_strings=(
+        "Main ProxMenux"
+        "Select an option:"
+        "Settings post-install Proxmox"
+        "Hardware: GPUs and Coral-TPU"
+        "Create VM from template or script"
+        "Disk and Storage Manager"
+        "Mount and Share Manager"
+        "Proxmox VE Helper Scripts"
+        "Network Management"
+        "Utilities and Tools"
+        "Help and Info Commands"
+        "Settings"
+        "Exit"
+        "Thank you for using ProxMenux. Goodbye!"
+        "Invalid option"
+    )
+    
+    for str in "${menu_strings[@]}"; do
+        translate "$str" > /dev/null
+    done
+}
+
 show_menu() {
     local TEMP_FILE
     TEMP_FILE=$(mktemp)
+    
+    # Preload translations once before menu loop
+    preload_menu_translations
 
     while true; do
 

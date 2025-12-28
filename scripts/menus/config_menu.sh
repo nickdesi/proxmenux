@@ -32,6 +32,20 @@ fi
 load_language
 initialize_cache
 
+# Preload config menu translations
+preload_config_translations() {
+    [[ "$LANGUAGE" == "en" ]] && return
+    local strings=(
+        "ProxMenux Monitor" "Deactivate Monitor" "Activate Monitor"
+        "Configuration Menu" "Select an option:" "Change Language"
+        "Show Version Information" "Uninstall ProxMenux" "Return to Main Menu"
+        "Deactivate ProxMenux Monitor" "Activate ProxMenux Monitor"
+        "Show Monitor Service Status"
+    )
+    for s in "${strings[@]}"; do translate "$s" > /dev/null; done
+}
+preload_config_translations
+
 # ==========================================================
 
 uninstall_proxmenux_monitor() {
